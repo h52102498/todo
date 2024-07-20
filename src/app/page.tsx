@@ -11,21 +11,21 @@ import Modal from "react-modal";
 
 export default function Home() {
   interface Todo {
-    id: number; // 假设 id 是 number 类型
+    id: number; 
     name: string;
     description: string;
     is_completed: boolean;
     created_at: string;
     updated_at: string;
     data:[];
-    // 可根据实际情况添加其他属性
+    
   }
   const [todos,setTodos] = useState<Todo[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const perPage = 10;
   const [updatedTime, setUpdatedTime] = useState('');
   
-  //取得元todos清單
+  //取得原todos清單
   const getTodo = async (page: number) => {
     try {
       const response = await axios.get<{ data: Todo[] }>(`https://wayi.league-funny.com/api/task?page=${page}`);
@@ -37,7 +37,7 @@ export default function Home() {
     }
   };
 
-  // 初始加载时获取 todos 列表
+  
   useEffect(() => {
     getTodo(currentPage);
   }, [currentPage]);
@@ -81,11 +81,11 @@ export default function Home() {
         setEditModalOpen(false);
         setEditingTodo(null);
       } else {
-        // 如果 editingTodo 為 null，表示需要創建新資料
+        
         const newTask = {
           name,
           description,
-          is_completed: false, // 默认为未完成
+          is_completed: false, 
         };
 
         const response = await axios.post(
@@ -113,7 +113,6 @@ export default function Home() {
   }
 
   //編輯todo
-  
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
 
   const handleEditTodo = (todo: Todo) => {
@@ -153,25 +152,38 @@ export default function Home() {
   
   //切換已完成、未完成狀態
   const [completed,setCompleted] = useState(false)
-  const handleChangeTodoStatus = async(id:number,is_completed:boolean,updated_at:string) => {
+  const handleChangeTodoStatus = async (id: number, is_completed: boolean) => {
     try {
-      const response = await axios.patch(`https://wayi.league-funny.com/api/task/${id}`,{
+      const response = await axios.patch(`https://wayi.league-funny.com/api/task/${id}`, {
         is_completed: !is_completed,
-        updated_at: new Date().toLocaleString(), // 更新時間
-      })
-      console.log(response)
-      setUpdatedTime(new Date().toLocaleString()); // 更新 updatedTime
-      if(is_completed !== true) setCompleted(true);
-      else setCompleted(false);
-      getTodo(currentPage);
+        updated_at: new Date().toISOString(), // 更新時間設置為當前時間
+      });
+  
+      // 只更新特定任務的 updated_at 和 is_completed 在 todos 狀態中
+      const updatedTodos = todos.map(todo => {
+        if (todo.id === id) {
+          return {
+            ...todo,
+            is_completed: !is_completed, // 切換任務狀態
+            updated_at: new Date().toISOString(), // 更新特定任務的更新時間
+          };
+        }
+        return todo;
+      });
+  
+      setTodos(updatedTodos); // 使用修改後的任務更新 todos 狀態
+  
+      
     } catch (error) {
       console.error('更新失敗:', error);
       setError("操作失敗，請重試");
     }
-  }
+  };
+  
   useEffect(() => {
-
-  }, [updatedTime]);
+    // 初始設置一次更新時間
+    setUpdatedTime(new Date().toLocaleString());
+  }, []);
 
   //換頁功能
   
@@ -189,7 +201,6 @@ export default function Home() {
   return (
     <div className="relative w-full  px-4 ">
       <div className="w-full absolute top-0 left-0 -z-10 bg-blue-700 h-screen">
-        {/* <Image className="w-full" src={bgDesktopDark} alt="bg-desktop" /> */}
       </div>
       <main className="flex flex-col gap-6 w-full max-w-[900px]  mx-auto">
         {/* header */}
@@ -239,10 +250,10 @@ export default function Home() {
                     <li className="border-b-2 ml-2" key={todo.id}>
                       <div className="flex items-center">
                         <div className="flex-1">
-                          <input className="mr-2" checked={todo.is_completed} type="checkbox" name="" id=""  onChange={()=>handleChangeTodoStatus(todo.id,todo.is_completed,todo.updated_at)}/>
+                          <input className="mr-2" checked={todo.is_completed} type="checkbox" name="" id=""  onChange={()=>handleChangeTodoStatus(todo.id,todo.is_completed)}/>
                           <span className="mr-2 ml-4">任務:{todo.name}</span>
                           <br/><span className="mr-2 ml-9">描述:{todo.description} </span>
-                          <br/><span className="mr-2 ml-9">(建立時間: {new Date(todo.created_at).toLocaleString()},</span> <span className="">更新時間: {updatedTime})</span>
+                          <br/><span className="mr-2 ml-9 hidden sm:inline-block">建立時間: {new Date(todo.created_at).toLocaleString()},</span> <span className="hidden sm:inline-block">更新時間: {new Date(todo.updated_at).toLocaleString()}</span>
                         </div>
                         <div className="ml-auto flex items-center">
                             <button className="mr-1" type="button" onClick={() => handleEditTodo(todo)} >編輯</button>
