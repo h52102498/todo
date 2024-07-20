@@ -1,113 +1,311 @@
+"use client"
 import Image from "next/image";
+import bgDesktopDark from "@/assets/images/bg-desktop-dark.jpg";
+import bgMobiledark from "@/assets/images/bg-mobile-dark.jpg";
+import { AiOutlineEnter } from "react-icons/ai";
+import axios from "axios";
+import { useState,useEffect } from "react";
+import Modal from "react-modal";
+
+
 
 export default function Home() {
+  interface Todo {
+    id: number; // 假设 id 是 number 类型
+    name: string;
+    description: string;
+    is_completed: boolean;
+    created_at: string;
+    updated_at: string;
+    data:[];
+    // 可根据实际情况添加其他属性
+  }
+  const [todos,setTodos] = useState<Todo[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const perPage = 10;
+  const [updatedTime, setUpdatedTime] = useState('');
+  
+  //取得元todos清單
+  const getTodo = async (page: number) => {
+    try {
+      const response = await axios.get<{ data: Todo[] }>(`https://wayi.league-funny.com/api/task?page=${page}`);
+      const res = response.data.data;
+      setTodos(res);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError("讀取錯誤");
+    }
+  };
+
+  // 初始加载时获取 todos 列表
+  useEffect(() => {
+    getTodo(currentPage);
+  }, [currentPage]);
+
+  //新增todos清單
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [error, setError] = useState('');
+  
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!name.trim()) {
+      setError("任務名稱為必填");
+      return;
+    }
+
+    try {
+      if (editingTodo) {
+        const updatedTodo = {
+          id: editingTodo.id,
+          name,
+          description,
+          is_completed: editingTodo.is_completed,
+        };
+
+        await axios.put(
+          `https://wayi.league-funny.com/api/task/${editingTodo.id}`,
+          updatedTodo
+        );
+
+        // 清空表單和錯誤
+        setName("");
+        setDescription("");
+        setError("");
+
+        // 重新載入資料
+        setUpdatedTime(new Date().toLocaleString());
+        getTodo(currentPage);
+        setEditModalOpen(false);
+        setEditingTodo(null);
+      } else {
+        // 如果 editingTodo 為 null，表示需要創建新資料
+        const newTask = {
+          name,
+          description,
+          is_completed: false, // 默认为未完成
+        };
+
+        const response = await axios.post(
+          "https://wayi.league-funny.com/api/task",
+          newTask
+        );
+
+        // 清空表單和錯誤
+        setName("");
+        setDescription("");
+        setError("");
+
+        // 重新載入資料
+        getTodo(currentPage);
+      }
+    } catch (error) {
+      console.error("操作失敗:", error);
+      setError("操作失敗，請重試");
+    }
+  };
+
+  //關閉modal
+  const handelCloseModal = () =>{
+    setEditModalOpen(false);
+  }
+
+  //編輯todo
+  
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+
+  const handleEditTodo = (todo: Todo) => {
+    setEditingTodo(todo);
+    setName(todo.name);
+    setDescription(todo.description);
+    setEditModalOpen(true);
+  };
+
+
+
+  //刪除功能
+  const handleDelete = async(id:number) => {
+    try {
+      const response = await axios.delete(`https://wayi.league-funny.com/api/task/${id}`)
+      console.log(response)
+      const updatedTodos = todos.filter(todo => todo.id !== id);
+      setTodos(updatedTodos);
+    } catch (error) {
+      console.error('刪除失敗:', error);
+      setError("操作失敗，請重試");
+    }
+  }
+
+  //切換顯示隱藏已完成or打開
+
+  //隱藏
+  const handleHideCompleted = () => {
+    const filteredTodos = todos.filter(todo => !todo.is_completed);
+    setTodos(filteredTodos);
+  }
+
+  //顯示
+  const handleDisplayCompleted = () => {
+    getTodo(currentPage);
+  }
+  
+  //切換已完成、未完成狀態
+  const [completed,setCompleted] = useState(false)
+  const handleChangeTodoStatus = async(id:number,is_completed:boolean,updated_at:string) => {
+    try {
+      const response = await axios.patch(`https://wayi.league-funny.com/api/task/${id}`,{
+        is_completed: !is_completed,
+        updated_at: new Date().toLocaleString(), // 更新時間
+      })
+      console.log(response)
+      setUpdatedTime(new Date().toLocaleString()); // 更新 updatedTime
+      if(is_completed !== true) setCompleted(true);
+      else setCompleted(false);
+      getTodo(currentPage);
+    } catch (error) {
+      console.error('更新失敗:', error);
+      setError("操作失敗，請重試");
+    }
+  }
+  useEffect(() => {
+
+  }, [updatedTime]);
+
+  //換頁功能
+  
+  const handleNextPage = () => {
+    setCurrentPage(prevPage => prevPage + 1);
+  }
+  
+  const handlePrevPage = () => {
+    setCurrentPage(prevPage => Math.max(prevPage - 1, 1)); // 確保頁碼不小於1
+  }
+
+  
+  
+  
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="relative w-full  px-4 ">
+      <div className="w-full absolute top-0 left-0 -z-10 bg-blue-700 h-screen">
+        {/* <Image className="w-full" src={bgDesktopDark} alt="bg-desktop" /> */}
+      </div>
+      <main className="flex flex-col gap-6 w-full max-w-[900px]  mx-auto">
+        {/* header */}
+        <div className="flex w-full justify-between items-center pt-20">
+          <h2 className="text-white text-4xl font-black tracking-[10px] ">
+            TODO
+          </h2>
         </div>
-      </div>
+        <section className="w-full flex-col flex gap-5  ">
+          {/* input */}
+          <form onSubmit={handleSubmit}>
+            <div className="flex justify-center mb-4">
+              <label htmlFor="taskName" className="font-bold text-white text-2xl">任務名稱：</label>
+              <input
+                type="text"
+                id="taskName"
+                className="border-solid border-gray-600"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-center mb-4">
+              <label htmlFor="taskDescription" className="font-bold text-white text-2xl">任務描述：</label>
+              <input
+                type="text"
+                id="taskDescription"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            {error && <p style={{ color: 'red' }} className="flex justify-center mb-4">{error}</p>}
+            <div className="flex justify-center ">
+              <button type="submit" className="font-bold text-white text-2xl bg-gray-900 p-4 w-3/12">提交</button>
+            </div>
+          </form>
 
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+            {/* todo  */}
+            <div className="card card_list bg-white dark:bg-slate-800 w-full rounded-md border dark:border-slate-900">
+              <ul className="tab flex text-center text-gray-400 ">
+                <li className="tab_unchecked p-4 w-full border-b-2 border-r-2"><button type="button" onClick={handleHideCompleted}>隱藏已完成</button></li>
+                <li className="tab_checked p-4 w-full border-b-2"><button type="button" onClick={handleDisplayCompleted}>顯示已完成</button></li>
+              </ul>
+              <div className="cart_content p-4 ">
+                <ul className="list pr-8 relative">
+                {todos && todos.length > 0 ? (
+                  todos.map(todo => (
+                    <li className="border-b-2 ml-2" key={todo.id}>
+                      <div className="flex items-center">
+                        <div className="flex-1">
+                          <input className="mr-2" checked={todo.is_completed} type="checkbox" name="" id=""  onChange={()=>handleChangeTodoStatus(todo.id,todo.is_completed,todo.updated_at)}/>
+                          <span className="mr-2 ml-4">任務:{todo.name}</span>
+                          <br/><span className="mr-2 ml-9">描述:{todo.description} </span>
+                          <br/><span className="mr-2 ml-9">(建立時間: {new Date(todo.created_at).toLocaleString()},</span> <span className="">更新時間: {updatedTime})</span>
+                        </div>
+                        <div className="ml-auto flex items-center">
+                            <button className="mr-1" type="button" onClick={() => handleEditTodo(todo)} >編輯</button>
+                          <button className="ml-1 text-red-700" type="button"
+                          onClick={() => handleDelete(todo.id)}>刪除</button>
+                        </div>
+                       
+                      </div>
+                    </li>
+                    
+                  ))
+                ) : (
+                  <li className="border-b-2 ml-8">No todos found.</li>
+                )}
+                  
+                </ul>
+                <div className="pagination flex justify-center mt-4">
+                  <button onClick={handlePrevPage} disabled={currentPage === 1} className="mr-4">上一頁</button>
+                  <button onClick={handleNextPage}>下一頁</button>
+                </div>
+              </div>
+            </div>
+        </section>
+        
+      </main>
+      <Modal
+        isOpen={editModalOpen}
+        onRequestClose={() => setEditModalOpen(false)}
+        contentLabel="編輯任務"
+        ariaHideApp={false}
+      >
+        <div className="bg-blue-900 h-full">
+          <h1 className="text-center pt-8 mb-4 font-bold text-2xl text-white">編輯任務</h1>
+          <div className="flex justify-center">
+            <form onSubmit={handleSubmit} >
+              <div className=" ml-14 mb-4">
+                <label htmlFor="editTaskName" className="mr-2 text-white">任務名稱：</label>
+                <input
+                  type="text"
+                  id="editTaskName"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className=" ml-14">
+                <label htmlFor="editTaskDescription" className="mr-2 text-white">任務描述：</label>
+                <input
+                  type="text"
+                  id="editTaskDescription"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              <div className="ml-28 mt-4 flex ">
+                {error && <p style={{ color: "red" }}>{error}</p>}
+                <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex justify-center mr-4">更新</button>
+                <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex justify-center" onClick={()=>{handelCloseModal}}>取消</button>
+              </div>
+            </form>
+          </div>
+          
+        </div>
+      </Modal>
+    </div>
   );
 }
